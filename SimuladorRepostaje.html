@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Repostaje Inteligente</title>
+
+<style>
+body{
+  font-family: system-ui, sans-serif;
+  background:#0f172a;
+  color:white;
+  margin:0;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  min-height:100vh;
+}
+
+.card{
+  background:#1e293b;
+  padding:22px;
+  border-radius:16px;
+  width:100%;
+  max-width:480px;
+}
+
+h1{text-align:center;margin:0 0 14px}
+
+label{display:block;margin-top:12px;font-size:14px}
+
+input{
+  width:100%;
+  padding:10px;
+  margin-top:6px;
+  border:none;
+  border-radius:8px;
+  font-size:16px;
+}
+
+.tabs{display:flex;gap:6px;margin-top:8px}
+.tab{
+  flex:1;padding:8px;background:#0f172a;border-radius:6px;
+  text-align:center;cursor:pointer;opacity:.6;font-size:13px;
+}
+.tab.active{background:#22c55e;color:#0f172a;opacity:1;font-weight:bold}
+
+.tab-content{display:none;margin-top:8px}
+.tab-content.active{display:block}
+
+.frac{display:flex;gap:6px}
+
+.quick-buttons{display:flex;gap:6px;margin-top:6px}
+
+.quick-buttons button{
+  flex:1;padding:8px;border:none;border-radius:6px;
+  background:#334155;color:white;cursor:pointer;
+}
+
+.quick-buttons button.selected{
+  background:#22c55e;color:#0f172a;font-weight:bold;
+}
+
+button{
+  width:100%;
+  margin-top:18px;
+  padding:12px;
+  border:none;
+  border-radius:10px;
+  background:#22c55e;
+  font-weight:bold;
+  font-size:16px;
+  cursor:pointer;
+}
+
+.resultado{
+  margin-top:18px;
+  background:#0f172a;
+  padding:14px;
+  border-radius:10px;
+  text-align:center;
+  font-size:18px;
+}
+
+hr{opacity:.2;margin:16px 0}
+</style>
+
+</head>
+<body>
+
+<div class="card">
+
+<h1>⛽ Repostaje Inteligente</h1>
+
+<label>Dinero a repostar (€)</label>
+<input id="dinero" type="number" step="0.01" min="1" required>
+
+<label>Precio combustible (€/L)</label>
+<input id="precio" type="number" step="0.001" min="0.001" required>
+
+<label>Capacidad depósito (L)</label>
+<input id="capacidad" type="number">
+
+<hr>
+
+<label>Nivel actual</label>
+
+<div class="tabs" id="tabs">
+  <div class="tab active" onclick="setTab(event,'pct')">%</div>
+  <div class="tab" onclick="setTab(event,'frac')">Fracción</div>
+  <div class="tab" onclick="setTab(event,'dec')">Decimal</div>
+  <div class="tab" onclick="setTab(event,'quick')">Rápido</div>
+</div>
+
+<div id="pct" class="tab-content active">
+  <input id="pct_val" type="number" min="0" max="100" placeholder="0-100">
+</div>
+
+<div id="frac" class="tab-content">
+  <div class="frac">
+    <input id="num" type="number" min="1" max="8">
+    <input id="den" type="number" min="4" max="8" step="4">
+  </div>
+</div>
+
+<div id="dec" class="tab-content">
+  <input id="dec_val" type="number" min="0" max="1" step="0.01">
+</div>
+
+<div id="quick" class="tab-content">
+  <div class="quick-buttons">
+    <button onclick="quick(event,0.25)">1/4</button>
+    <button onclick="quick(event,0.5)">1/2</button>
+    <button onclick="quick(event,0.75)">3/4</button>
+  </div>
+</div>
+
+<button onclick="calcular()">CALCULAR</button>
+
+<div class="resultado" id="resultado"></div>
+
+</div>
+
+<script>
+
+let quickValue = null;
+
+function setTab(e,mode){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  e.target.classList.add('active');
+
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+  document.getElementById(mode).classList.add('active');
+
+  quickValue = null;
+  document.querySelectorAll('.quick-buttons button').forEach(b=>b.classList.remove('selected'));
+}
+
+function quick(e,val){
+  quickValue = val;
+  document.querySelectorAll('.quick-buttons button').forEach(b=>b.classList.remove('selected'));
+  e.target.classList.add('selected');
+}
+
+function getNivel(){
+
+  if(quickValue !== null) return quickValue;
+
+  if(document.getElementById('pct').classList.contains('active')){
+    return document.getElementById('pct_val').value / 100;
+  }
+
+  if(document.getElementById('frac').classList.contains('active')){
+    const n = parseFloat(document.getElementById('num').value);
+    const d = parseFloat(document.getElementById('den').value);
+    return n/d;
+  }
+
+  if(document.getElementById('dec').classList.contains('active')){
+    return parseFloat(document.getElementById('dec_val').value);
+  }
+
+  return null;
+}
+
+function calcular(){
+
+  const dinero = parseFloat(document.getElementById('dinero').value);
+  const precio = parseFloat(document.getElementById('precio').value);
+  const capacidad = parseFloat(document.getElementById('capacidad').value);
+  const nivel = getNivel();
+
+  if(!dinero || !precio){
+    resultado.innerHTML="Datos inválidos";
+    return;
+  }
+
+  const litros = dinero / precio;
+
+  // CASO SIN NIVEL
+  if(!nivel || !capacidad){
+    resultado.innerHTML = `Repostarás <b>${litros.toFixed(2)} L</b>`;
+    return;
+  }
+
+  const actual = capacidad * nivel;
+  const nuevo = actual + litros;
+
+  // 🚨 NUEVA REGLA: exceso de capacidad
+  if(nuevo > capacidad){
+    resultado.innerHTML = `
+      🚫 <b>¡Límite de capacidad excedido!</b><br>
+      No cabe el combustible en el depósito.<br><br>
+      Capacidad: <b>${capacidad.toFixed(2)} L</b><br>
+      Actual: <b>${actual.toFixed(2)} L</b><br>
+      Intento de repostaje: <b>${litros.toFixed(2)} L</b>
+    `;
+    return;
+  }
+
+      const incremento = ((nuevo / capacidad) - (actual / capacidad)) * 100;
+
+  const nivelFinal = nuevo / capacidad;
+  const porcentajeFinal = nivelFinal * 100;
+
+  // 🚨 exceso de capacidad
+  if(nuevo > capacidad){
+    resultado.innerHTML = `
+      🚫 <b>¡Límite de capacidad excedido!</b><br><br>
+      Capacidad: <b>${capacidad.toFixed(2)} L</b><br>
+      Nivel actual: <b>${actual.toFixed(2)} L</b><br>
+      Intento de repostaje: <b>${litros.toFixed(2)} L</b>
+    `;
+    return;
+  }
+
+  resultado.innerHTML = `
+    Repostarás <b>${litros.toFixed(2)} L</b><br><br>
+
+    📊 <b>Estado final del depósito:</b><br>
+    ${nuevo.toFixed(2)} L<br>
+    ${porcentajeFinal.toFixed(1)}%<br><br>
+
+    🔼 Subida: <b>${incremento.toFixed(1)}%</b>
+  `;
+}
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Depósito Justo</title>
+<style>
+body{
+  font-family: system-ui, sans-serif;
+  background:#0f172a;
+  color:white;
+  margin:0;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  min-height:100vh;
+}
+.card{
+  background:#1e293b;
+  padding:22px;
+  border-radius:16px;
+  width:100%;
+  max-width:480px;
+}
+h1{text-align:center;margin:0 0 12px}
+label{margin-top:12px;display:block;font-size:14px}
+input{
+  width:100%;
+  padding:10px;
+  margin-top:6px;
+  border-radius:8px;
+  border:none;
+  font-size:16px;
+}
+.tabs{display:flex;gap:6px;margin-top:8px}
+.tab{
+  flex:1;padding:8px;background:#0f172a;border-radius:6px;
+  text-align:center;cursor:pointer;opacity:.6;font-size:13px;
+}
+.tab.active{background:#22c55e;color:#0f172a;opacity:1;font-weight:bold}
+.tab-content{display:none;margin-top:8px}
+.tab-content.active{display:block}
+.frac{display:flex;gap:6px}
+.quick-buttons{display:flex;gap:6px;margin-top:6px}
+.quick-buttons button{
+  flex:1;padding:8px;border:none;border-radius:6px;
+  background:#334155;color:white;cursor:pointer;
+}
+.quick-buttons button.selected{
+  background:#22c55e;color:#0f172a;font-weight:bold;
+}
+button.calc{
+  width:100%;margin-top:18px;padding:12px;
+  border:none;border-radius:10px;font-weight:bold;
+  background:#22c55e;color:#0f172a;font-size:16px;
+}
+.resultado{
+  margin-top:18px;background:#0f172a;
+  padding:14px;border-radius:10px;text-align:center;
+  font-size:18px;
+}
+</style>
+</head>
+<body>
+<div class="card">
+<h1>⛽ Depósito Justo</h1>
+
+<label>Precio combustible</label>
+<input id="precio" placeholder="Ej: 1463 o 1.463"/>
+
+<label>Capacidad depósito (L)</label>
+<input id="capacidad" placeholder="Ej: 55"/>
+
+<!-- NIVEL ACTUAL -->
+<label>Nivel actual</label>
+<div class="tabs" id="tabsActual">
+  <div class="tab active" onclick="setTab(event,'actual','pct')">%</div>
+  <div class="tab" onclick="setTab(event,'actual','frac')">Fracción</div>
+  <div class="tab" onclick="setTab(event,'actual','dec')">Decimal</div>
+  <div class="tab" onclick="setTab(event,'actual','quick')">Rápido</div>
+</div>
+
+<div id="actual_pct" class="tab-content active">
+  <input id="actual_pct_val" placeholder="0 a 100">
+</div>
+
+<div id="actual_frac" class="tab-content">
+  <div class="frac">
+    <input id="actual_num" placeholder="Numerador">
+    <input id="actual_den" placeholder="4 u 8">
+  </div>
+</div>
+
+<div id="actual_dec" class="tab-content">
+  <input id="actual_dec_val" placeholder="0.0 a 1.0">
+</div>
+
+<div id="actual_quick" class="tab-content">
+  <div class="quick-buttons">
+    <button onclick="quick(event,'actual',0.25)">1/4</button>
+    <button onclick="quick(event,'actual',0.5)">1/2</button>
+    <button onclick="quick(event,'actual',0.75)">3/4</button>
+  </div>
+</div>
+
+<!-- NIVEL DESEADO -->
+<label>Nivel deseado (opcional)</label>
+<div class="tabs" id="tabsDeseado">
+  <div class="tab active" onclick="setTab(event,'deseado','pct')">%</div>
+  <div class="tab" onclick="setTab(event,'deseado','frac')">Fracción</div>
+  <div class="tab" onclick="setTab(event,'deseado','dec')">Decimal</div>
+  <div class="tab" onclick="setTab(event,'deseado','quick')">Rápido</div>
+</div>
+
+<div id="deseado_pct" class="tab-content active">
+  <input id="deseado_pct_val" placeholder="0 a 100">
+</div>
+
+<div id="deseado_frac" class="tab-content">
+  <div class="frac">
+    <input id="deseado_num" placeholder="Numerador">
+    <input id="deseado_den" placeholder="4 u 8">
+  </div>
+</div>
+
+<div id="deseado_dec" class="tab-content">
+  <input id="deseado_dec_val" placeholder="0.0 a 1.0">
+</div>
+
+<div id="deseado_quick" class="tab-content">
+  <div class="quick-buttons">
+    <button onclick="quick(event,'deseado',0.25)">1/4</button>
+    <button onclick="quick(event,'deseado',0.5)">1/2</button>
+    <button onclick="quick(event,'deseado',0.75)">3/4</button>
+  </div>
+</div>
+
+<button class="calc" onclick="calcular()">CALCULAR</button>
+<div class="resultado" id="resultado"></div>
+</div>
+
+<script>
+let quickValues={actual:null,deseado:null};
+
+function setTab(e,tipo,modo){
+  document.querySelectorAll(`#tabs${cap(tipo)} .tab`).forEach(t=>t.classList.remove('active'));
+  e.target.classList.add('active');
+  document.querySelectorAll(`[id^=${tipo}_]`).forEach(c=>c.classList.remove('active'));
+  document.getElementById(`${tipo}_${modo}`).classList.add('active');
+  quickValues[tipo]=null;
+  document.querySelectorAll(`#${tipo}_quick button`).forEach(b=>b.classList.remove('selected'));
+}
+
+function quick(e,tipo,val){
+  quickValues[tipo]=val;
+  document.querySelectorAll(`#${tipo}_quick button`).forEach(b=>b.classList.remove('selected'));
+  e.target.classList.add('selected');
+}
+
+function cap(s){return s.charAt(0).toUpperCase()+s.slice(1);}
+
+function normalizarPrecio(v){
+  v=v.replace(/\s/g,'').replace(',','.');
+  if(v.includes('.')){
+    let [e,d]=v.split('.');
+    return parseFloat(e+'.'+(d||'').slice(0,3));
+  }
+  v=v.replace(/\D/g,'');
+  if(v.length===4) return parseFloat(v[0]+'.'+v.slice(1));
+  if(v.length===3) return parseFloat(v[0]+'.'+v.slice(1));
+  if(v.length===2) return parseFloat(v[0]+'.'+v[1]);
+  return parseFloat(v);
+}
+
+function validarNivel(tipo){
+  if(quickValues[tipo]!==null) return quickValues[tipo];
+
+  const active=document.querySelector(`#${tipo}_pct.active, #${tipo}_frac.active, #${tipo}_dec.active`);
+  if(!active) return null;
+
+  if(active.id.includes("pct")){
+    let v=parseFloat(document.getElementById(`${tipo}_pct_val`).value);
+    if(v<0||v>100) throw "El % debe estar entre 0 y 100";
+    return v/100;
+  }
+
+  if(active.id.includes("frac")){
+    let n=parseFloat(document.getElementById(`${tipo}_num`).value);
+    let d=parseFloat(document.getElementById(`${tipo}_den`).value);
+    if(!(d===4||d===8)) throw "El denominador debe ser 4 u 8";
+    if(n<1||n>d) throw "Fracción fuera de rango";
+    return n/d;
+  }
+
+  if(active.id.includes("dec")){
+    let v=parseFloat(document.getElementById(`${tipo}_dec_val`).value);
+    if(v<0||v>1) throw "Decimal debe estar entre 0.0 y 1.0";
+    return v;
+  }
+}
+
+function calcular(){
+  try{
+    const precio=normalizarPrecio(document.getElementById("precio").value);
+    document.getElementById("precio").value=precio.toFixed(3);
+
+    const capacidad=parseFloat(document.getElementById("capacidad").value);
+    const nivelActual=validarNivel("actual");
+    const nivelDeseado=validarNivel("deseado");
+
+    if(isNaN(precio)||isNaN(capacidad)||isNaN(nivelActual)) throw "Revisa los datos";
+
+    const litrosActuales=capacidad*nivelActual;
+    let litrosARepostar=nivelDeseado?(capacidad*nivelDeseado)-litrosActuales:capacidad-litrosActuales;
+    if(litrosARepostar<=0) throw "El nivel deseado ya está alcanzado";
+
+    const coste=litrosARepostar*precio;
+
+    resultado.innerHTML=`Debes repostar <b>${litrosARepostar.toFixed(2)} L</b><br>Coste: <b>${coste.toFixed(2)} €</b>`;
+  }catch(err){
+    resultado.innerHTML=err;
+  }
+}
+</script>
+</body>
+</html>
