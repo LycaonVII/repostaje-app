@@ -16,14 +16,22 @@ body{
   flex-direction:column;
 }
 
+/* HEADER MEJORADO */
 header{
-  padding:14px;
+  padding:12px;
   background:#1e293b;
+
   display:flex;
   gap:10px;
   justify-content:center;
+
+  /* 🔥 mejora clave */
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  white-space:nowrap;
 }
 
+/* BOTONES (manteniendo tu estilo base) */
 button{
   padding:10px 16px;
   border:none;
@@ -33,13 +41,25 @@ button{
   background:#334155;
   color:white;
   transition:.2s;
+
+  /* 🔥 evita que se compriman */
+  flex:0 0 auto;
+  white-space:nowrap;
 }
 
+/* ACTIVO */
 button.active{
   background:#22c55e;
   color:#0f172a;
+  transform:scale(1.05);
 }
 
+/* efecto hover (opcional pero mejora sensación app) */
+button:hover{
+  opacity:.9;
+}
+
+/* IFRAME */
 iframe{
   flex:1;
   border:none;
