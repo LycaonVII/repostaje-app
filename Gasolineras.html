@@ -24,7 +24,18 @@ header{
 }
 
 #map{
-  height:55vh;
+  height:45vh;
+}
+
+/* 🔥 NUEVO CONTROL DE RADIO */
+#controls{
+  padding:10px;
+  background:#1e293b;
+  text-align:center;
+}
+
+#controls input{
+  width:100%;
 }
 
 .panel{
@@ -64,6 +75,14 @@ button{
 
 <header>⛽ Gasolineras Cercanas</header>
 
+<!-- 🔥 CONTROL RADIO -->
+<div id="controls">
+  <div>
+    Radio: <span id="radioValue">5</span> km
+  </div>
+  <input id="radius" type="range" min="5" max="60" value="5" step="1">
+</div>
+
 <div id="map"></div>
 
 <div class="panel" id="lista">
@@ -77,6 +96,21 @@ Cargando gasolineras...
 let map;
 let userLat, userLon;
 let stations = [];
+let radiusKm = 5;
+
+/* 🔥 ACTUALIZAR RADIO */
+document.addEventListener("DOMContentLoaded", () => {
+  const slider = document.getElementById("radius");
+
+  slider.addEventListener("input", () => {
+    radiusKm = parseInt(slider.value);
+    document.getElementById("radioValue").innerText = radiusKm;
+
+    if(userLat && userLon){
+      loadStations(userLat, userLon);
+    }
+  });
+});
 
 // 📍 Distancia (Haversine)
 function distance(lat1, lon1, lat2, lon2){
@@ -114,8 +148,8 @@ async function loadStations(lat, lon){
   const query = `
   [out:json];
   (
-    node["amenity"="fuel"](around:5000,${lat},${lon});
-    way["amenity"="fuel"](around:5000,${lat},${lon});
+    node["amenity"="fuel"](around:${radiusKm * 1000},${lat},${lon});
+    way["amenity"="fuel"](around:${radiusKm * 1000},${lat},${lon});
   );
   out center;
   `;
