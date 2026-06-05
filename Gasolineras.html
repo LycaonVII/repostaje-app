@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gasolineras Cercanas</title>
+<title>Gasolineras Cercanas PRO</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
@@ -16,19 +16,18 @@ body{
 }
 
 header{
-  padding:16px;
+  padding:14px;
   text-align:center;
-  font-weight:bold;
-  font-size:18px;
   background:#1e293b;
+  font-weight:bold;
 }
 
 #map{
-  height:55vh;
+  height:50vh;
 }
 
 .panel{
-  padding:12px;
+  padding:10px;
 }
 
 .card{
@@ -36,6 +35,10 @@ header{
   padding:10px;
   margin-bottom:10px;
   border-radius:10px;
+}
+
+.best{
+  border:2px solid #22c55e;
 }
 
 .name{
@@ -47,27 +50,57 @@ header{
   opacity:.8;
 }
 
-button{
-  margin-top:6px;
+.filters{
+  display:flex;
+  gap:6px;
+  padding:10px;
+  flex-wrap:wrap;
+}
+
+.filters button{
+  flex:1;
   padding:8px;
-  width:100%;
   border:none;
   border-radius:8px;
-  background:#22c55e;
-  font-weight:bold;
+  background:#334155;
+  color:white;
   cursor:pointer;
+}
+
+.filters button.active{
+  background:#22c55e;
+  color:#0f172a;
+  font-weight:bold;
+}
+
+.error{
+  padding:10px;
+  color:#f87171;
+  text-align:center;
+}
+
+.loading{
+  padding:10px;
+  opacity:.8;
 }
 </style>
 </head>
 
 <body>
 
-<header>⛽ Gasolineras Cercanas</header>
+<header>⛽ Gasolineras Cercanas PRO</header>
 
 <div id="map"></div>
 
+<div class="filters">
+  <button onclick="setFilter('all')" class="active">Todas</button>
+  <button onclick="setFilter('diesel')">Diésel</button>
+  <button onclick="setFilter('gasoline')">Gasolina</button>
+  <button onclick="setFilter('cheap')">Más barata</button>
+</div>
+
 <div class="panel" id="lista">
-Cargando gasolineras...
+  <div class="loading">Cargando gasolineras...</div>
 </div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -77,23 +110,23 @@ Cargando gasolineras...
 let map;
 let userLat, userLon;
 let stations = [];
+let filterMode = "all";
+let markers = [];
 
-// 📍 Distancia (Haversine)
 function distance(lat1, lon1, lat2, lon2){
   const R = 6371;
   const dLat = (lat2-lat1)*Math.PI/180;
   const dLon = (lon2-lon1)*Math.PI/180;
 
   const a =
-    Math.sin(dLat/2)*Math.sin(dLat/2) +
+    Math.sin(dLat/2)**2 +
     Math.cos(lat1*Math.PI/180) *
     Math.cos(lat2*Math.PI/180) *
-    Math.sin(dLon/2)*Math.sin(dLon/2);
+    Math.sin(dLon/2)**2;
 
-  return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
-// 🗺️ Init mapa
 function initMap(lat, lon){
 
   map = L.map('map').setView([lat, lon], 14);
@@ -102,14 +135,25 @@ function initMap(lat, lon){
     maxZoom:19
   }).addTo(map);
 
-  L.marker([lat, lon])
-    .addTo(map)
-    .bindPopup("📍 Estás aquí")
-    .openPopup();
+  L.marker([lat, lon]).addTo(map).bindPopup("📍 Estás aquí");
+
+  map.on('moveend', ()=>{
+    loadStations(map.getCenter().lat, map.getCenter().lng);
+  });
 }
 
-// ⛽ Buscar gasolineras
-async function loadStations(lat, lon){
+function setFilter(f){
+  filterMode = f;
+
+  document.querySelectorAll('.filters button')
+    .forEach(b=>b.classList.remove('active'));
+
+  event.target.classList.add('active');
+
+  renderStations();
+}
+
+async function fetchStations(lat, lon){
 
   const query = `
   [out:json];
@@ -122,23 +166,81 @@ async function loadStations(lat, lon){
 
   const url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(query);
 
-  const res = await fetch(url);
-  const data = await res.json();
+  const controller = new AbortController();
+  const timeout = setTimeout(()=>controller.abort(), 8000);
+
+  try{
+
+    const res = await fetch(url,{signal:controller.signal});
+    clearTimeout(timeout);
+
+    if(!res.ok) throw new Error("API error");
+
+    return await res.json();
+
+  }catch(e){
+
+    clearTimeout(timeout);
+
+    document.getElementById("lista").innerHTML = `
+      <div class="error">
+        ⚠️ No se han podido cargar gasolineras.<br>
+        Reintentando con fuente alternativa...
+      </div>
+    `;
+
+    return null;
+  }
+}
+
+function normalizeFuel(tags){
+
+  const text = JSON.stringify(tags || {}).toLowerCase();
+
+  return {
+    diesel: text.includes("diesel"),
+    gasoline: text.includes("gas") || text.includes("petrol"),
+    price: extractPrice(tags)
+  };
+}
+
+function extractPrice(tags){
+
+  if(!tags) return null;
+
+  let prices = Object.values(tags)
+    .filter(v => typeof v === "string")
+    .map(v => parseFloat(v.replace(",", ".")))
+    .filter(n => !isNaN(n));
+
+  return prices.length ? Math.min(...prices) : null;
+}
+
+async function loadStations(lat, lon){
+
+  const data = await fetchStations(lat, lon);
+
+  if(!data){
+    stations = [];
+    renderStations();
+    return;
+  }
 
   stations = data.elements.map(el => {
 
     const sLat = el.lat || el.center?.lat;
     const sLon = el.lon || el.center?.lon;
 
-    const name = el.tags?.name || "Gasolinera";
-
-    const dist = distance(lat, lon, sLat, sLon);
+    const fuel = normalizeFuel(el.tags);
 
     return {
-      name,
+      name: el.tags?.name || "Gasolinera",
       lat: sLat,
       lon: sLon,
-      dist
+      dist: distance(lat, lon, sLat, sLon),
+      diesel: fuel.diesel,
+      gasoline: fuel.gasoline,
+      price: fuel.price
     };
   });
 
@@ -148,46 +250,73 @@ async function loadStations(lat, lon){
   renderMarkers();
 }
 
-// 📍 Marcadores
+function clearMarkers(){
+  markers.forEach(m=>map.removeLayer(m));
+  markers = [];
+}
+
 function renderMarkers(){
 
-  stations.forEach(s=>{
-    L.marker([s.lat, s.lon])
-      .addTo(map)
-      .bindPopup(`
-        ⛽ ${s.name}<br>
-        📍 ${s.dist.toFixed(2)} km<br>
-        <a target="_blank"
-           href="https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lon}">
-           Cómo llegar
-        </a>
-      `);
+  clearMarkers();
+
+  stations.forEach((s,i)=>{
+
+    const marker = L.marker([s.lat, s.lon]).addTo(map);
+
+    marker.bindPopup(`
+      ⛽ ${s.name}<br>
+      📍 ${s.dist.toFixed(2)} km<br>
+      ${s.price ? "💶 " + s.price.toFixed(2) + " €/L" : ""}
+      <br>
+      <a target="_blank" href="https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lon}">
+        Cómo llegar
+      </a>
+    `);
+
+    markers.push(marker);
   });
 }
 
-// 📋 Lista ordenada
 function renderStations(){
+
+  let list = stations;
+
+  if(filterMode === "diesel"){
+    list = stations.filter(s=>s.diesel);
+  }
+
+  if(filterMode === "gasoline"){
+    list = stations.filter(s=>s.gasoline);
+  }
+
+  if(filterMode === "cheap"){
+    list = [...stations].sort((a,b)=>(a.price||999)-(b.price||999)).slice(0,5);
+  }
+
+  const best = stations[0];
 
   const div = document.getElementById("lista");
 
-  if(stations.length === 0){
-    div.innerHTML = "No se han encontrado gasolineras cercanas.";
+  if(!list.length){
+    div.innerHTML = "No hay resultados.";
     return;
   }
 
-  div.innerHTML = stations.map(s=>`
-    <div class="card">
-      <div class="name">⛽ ${s.name}</div>
+  div.innerHTML = list.map(s=>`
+
+    <div class="card ${s===best?'best':''}">
+      <div class="name">${s===best?'⭐ ':'⛽ '}${s.name}</div>
       <div class="small">📍 ${s.dist.toFixed(2)} km</div>
+      ${s.price ? `<div class="small">💶 ${s.price.toFixed(2)} €/L</div>` : ""}
       <button onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lon}')">
         Ir
       </button>
     </div>
+
   `).join('');
 }
 
-// 🚀 Inicio
-navigator.geolocation.getCurrentPosition(pos => {
+navigator.geolocation.getCurrentPosition(pos=>{
 
   userLat = pos.coords.latitude;
   userLon = pos.coords.longitude;
@@ -195,10 +324,11 @@ navigator.geolocation.getCurrentPosition(pos => {
   initMap(userLat, userLon);
   loadStations(userLat, userLon);
 
-}, err => {
+}, err=>{
 
   document.getElementById("lista").innerHTML =
     "⚠️ Activa la ubicación para ver gasolineras.";
+
 });
 
 </script>
