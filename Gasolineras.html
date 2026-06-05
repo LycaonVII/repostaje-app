@@ -23,18 +23,8 @@ header{
   background:#1e293b;
 }
 
-#controls{
-  padding:10px;
-  background:#1e293b;
-  text-align:center;
-}
-
-#controls input{
-  width:100%;
-}
-
 #map{
-  height:45vh;
+  height:55vh;
 }
 
 .panel{
@@ -74,15 +64,11 @@ button{
 
 <header>⛽ Gasolineras Cercanas</header>
 
-<!-- CONTROL RADIO -->
-<div id="controls">
-  Radio: <span id="radioValue">5</span> km
-  <input id="radius" type="range" min="5" max="60" value="5" step="1">
-</div>
-
 <div id="map"></div>
 
-<div class="panel" id="lista">Cargando gasolineras...</div>
+<div class="panel" id="lista">
+Cargando gasolineras...
+</div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
@@ -91,25 +77,23 @@ button{
 let map;
 let userLat, userLon;
 let stations = [];
-let radiusKm = 5;
-let stationLayer;
 
-// 📍 Distancia Haversine
+// 📍 Distancia (Haversine)
 function distance(lat1, lon1, lat2, lon2){
   const R = 6371;
   const dLat = (lat2-lat1)*Math.PI/180;
   const dLon = (lon2-lon1)*Math.PI/180;
 
   const a =
-    Math.sin(dLat/2)**2 +
+    Math.sin(dLat/2)*Math.sin(dLat/2) +
     Math.cos(lat1*Math.PI/180) *
     Math.cos(lat2*Math.PI/180) *
-    Math.sin(dLon/2)**2;
+    Math.sin(dLon/2)*Math.sin(dLon/2);
 
   return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
 }
 
-// 🗺️ MAPA
+// 🗺️ Init mapa
 function initMap(lat, lon){
 
   map = L.map('map').setView([lat, lon], 14);
@@ -122,24 +106,16 @@ function initMap(lat, lon){
     .addTo(map)
     .bindPopup("📍 Estás aquí")
     .openPopup();
-
-  stationLayer = L.layerGroup().addTo(map);
 }
 
-// ⛽ CARGA GASOLINERAS
+// ⛽ Buscar gasolineras
 async function loadStations(lat, lon){
 
-  stations = [];
-
-  if (stationLayer) stationLayer.clearLayers();
-
-  const radius = radiusKm * 1000;
-
   const query = `
-  [out:json][timeout:25];
+  [out:json];
   (
-    node["amenity"="fuel"](around:${radius},${lat},${lon});
-    way["amenity"="fuel"](around:${radius},${lat},${lon});
+    node["amenity"="fuel"](around:5000,${lat},${lon});
+    way["amenity"="fuel"](around:5000,${lat},${lon});
   );
   out center;
   `;
@@ -158,7 +134,12 @@ async function loadStations(lat, lon){
 
     const dist = distance(lat, lon, sLat, sLon);
 
-    return { name, lat: sLat, lon: sLon, dist };
+    return {
+      name,
+      lat: sLat,
+      lon: sLon,
+      dist
+    };
   });
 
   stations.sort((a,b)=>a.dist - b.dist);
@@ -167,12 +148,12 @@ async function loadStations(lat, lon){
   renderMarkers();
 }
 
-// 📍 MARCADORES
+// 📍 Marcadores
 function renderMarkers(){
 
   stations.forEach(s=>{
     L.marker([s.lat, s.lon])
-      .addTo(stationLayer)
+      .addTo(map)
       .bindPopup(`
         ⛽ ${s.name}<br>
         📍 ${s.dist.toFixed(2)} km<br>
@@ -184,13 +165,13 @@ function renderMarkers(){
   });
 }
 
-// 📋 LISTA
+// 📋 Lista ordenada
 function renderStations(){
 
   const div = document.getElementById("lista");
 
   if(stations.length === 0){
-    div.innerHTML = "No se han encontrado gasolineras.";
+    div.innerHTML = "No se han encontrado gasolineras cercanas.";
     return;
   }
 
@@ -205,23 +186,7 @@ function renderStations(){
   `).join('');
 }
 
-// 🎚️ SLIDER RADIO
-document.addEventListener("DOMContentLoaded", () => {
-
-  const slider = document.getElementById("radius");
-
-  slider.addEventListener("input", () => {
-    radiusKm = parseInt(slider.value);
-    document.getElementById("radioValue").textContent = radiusKm;
-
-    if(userLat && userLon){
-      loadStations(userLat, userLon);
-      map.invalidateSize();
-    }
-  });
-});
-
-// 🚀 INICIO
+// 🚀 Inicio
 navigator.geolocation.getCurrentPosition(pos => {
 
   userLat = pos.coords.latitude;
