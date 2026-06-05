@@ -140,7 +140,8 @@ function initMap(lat, lon){
     .addTo(map)
     .bindPopup("📍 Estás aquí")
     .openPopup();
-}
+
+  stationLayer = L.layerGroup().addTo(map);
 
 // ⛽ Buscar gasolineras
 async function loadStations(lat, lon){
