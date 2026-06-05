@@ -114,8 +114,8 @@ async function loadStations(lat, lon){
   const query = `
   [out:json];
   (
-    node["amenity"="fuel"](around:5000,${lat},${lon});
-    way["amenity"="fuel"](around:5000,${lat},${lon});
+    node["amenity"="fuel"](around:35000,${lat},${lon});
+    way["amenity"="fuel"](around:35000,${lat},${lon});
   );
   out center;
   `;
