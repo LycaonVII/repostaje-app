@@ -23,11 +23,6 @@ header{
   background:#1e293b;
 }
 
-#map{
-  height:45vh;
-}
-
-/* 🔥 NUEVO CONTROL DE RADIO */
 #controls{
   padding:10px;
   background:#1e293b;
@@ -36,6 +31,10 @@ header{
 
 #controls input{
   width:100%;
+}
+
+#map{
+  height:45vh;
 }
 
 .panel{
@@ -75,19 +74,15 @@ button{
 
 <header>⛽ Gasolineras Cercanas</header>
 
-<!-- 🔥 CONTROL RADIO -->
+<!-- CONTROL RADIO -->
 <div id="controls">
-  <div>
-    Radio: <span id="radioValue">5</span> km
-  </div>
+  Radio: <span id="radioValue">5</span> km
   <input id="radius" type="range" min="5" max="60" value="5" step="1">
 </div>
 
 <div id="map"></div>
 
-<div class="panel" id="lista">
-Cargando gasolineras...
-</div>
+<div class="panel" id="lista">Cargando gasolineras...</div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
@@ -97,37 +92,24 @@ let map;
 let userLat, userLon;
 let stations = [];
 let radiusKm = 5;
+let stationLayer;
 
-/* 🔥 ACTUALIZAR RADIO */
-document.addEventListener("DOMContentLoaded", () => {
-  const slider = document.getElementById("radius");
-
-  slider.addEventListener("input", () => {
-    radiusKm = parseInt(slider.value);
-    document.getElementById("radioValue").innerText = radiusKm;
-
-    if(userLat && userLon){
-      loadStations(userLat, userLon);
-    }
-  });
-});
-
-// 📍 Distancia (Haversine)
+// 📍 Distancia Haversine
 function distance(lat1, lon1, lat2, lon2){
   const R = 6371;
   const dLat = (lat2-lat1)*Math.PI/180;
   const dLon = (lon2-lon1)*Math.PI/180;
 
   const a =
-    Math.sin(dLat/2)*Math.sin(dLat/2) +
+    Math.sin(dLat/2)**2 +
     Math.cos(lat1*Math.PI/180) *
     Math.cos(lat2*Math.PI/180) *
-    Math.sin(dLon/2)*Math.sin(dLon/2);
+    Math.sin(dLon/2)**2;
 
   return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
 }
 
-// 🗺️ Init mapa
+// 🗺️ MAPA
 function initMap(lat, lon){
 
   map = L.map('map').setView([lat, lon], 14);
@@ -142,15 +124,22 @@ function initMap(lat, lon){
     .openPopup();
 
   stationLayer = L.layerGroup().addTo(map);
+}
 
-// ⛽ Buscar gasolineras
+// ⛽ CARGA GASOLINERAS
 async function loadStations(lat, lon){
 
+  stations = [];
+
+  if (stationLayer) stationLayer.clearLayers();
+
+  const radius = radiusKm * 1000;
+
   const query = `
-  [out:json];
+  [out:json][timeout:25];
   (
-    node["amenity"="fuel"](around:${radiusKm * 1000},${lat},${lon});
-    way["amenity"="fuel"](around:${radiusKm * 1000},${lat},${lon});
+    node["amenity"="fuel"](around:${radius},${lat},${lon});
+    way["amenity"="fuel"](around:${radius},${lat},${lon});
   );
   out center;
   `;
@@ -169,12 +158,7 @@ async function loadStations(lat, lon){
 
     const dist = distance(lat, lon, sLat, sLon);
 
-    return {
-      name,
-      lat: sLat,
-      lon: sLon,
-      dist
-    };
+    return { name, lat: sLat, lon: sLon, dist };
   });
 
   stations.sort((a,b)=>a.dist - b.dist);
@@ -183,12 +167,12 @@ async function loadStations(lat, lon){
   renderMarkers();
 }
 
-// 📍 Marcadores
+// 📍 MARCADORES
 function renderMarkers(){
 
   stations.forEach(s=>{
     L.marker([s.lat, s.lon])
-      .addTo(map)
+      .addTo(stationLayer)
       .bindPopup(`
         ⛽ ${s.name}<br>
         📍 ${s.dist.toFixed(2)} km<br>
@@ -200,13 +184,13 @@ function renderMarkers(){
   });
 }
 
-// 📋 Lista ordenada
+// 📋 LISTA
 function renderStations(){
 
   const div = document.getElementById("lista");
 
   if(stations.length === 0){
-    div.innerHTML = "No se han encontrado gasolineras cercanas.";
+    div.innerHTML = "No se han encontrado gasolineras.";
     return;
   }
 
@@ -221,7 +205,23 @@ function renderStations(){
   `).join('');
 }
 
-// 🚀 Inicio
+// 🎚️ SLIDER RADIO
+document.addEventListener("DOMContentLoaded", () => {
+
+  const slider = document.getElementById("radius");
+
+  slider.addEventListener("input", () => {
+    radiusKm = parseInt(slider.value);
+    document.getElementById("radioValue").textContent = radiusKm;
+
+    if(userLat && userLon){
+      loadStations(userLat, userLon);
+      map.invalidateSize();
+    }
+  });
+});
+
+// 🚀 INICIO
 navigator.geolocation.getCurrentPosition(pos => {
 
   userLat = pos.coords.latitude;
