@@ -41,7 +41,12 @@ input{
 .tab-content{display:none;margin-top:8px}
 .tab-content.active{display:block}
 .frac{display:flex;gap:6px}
-.quick-buttons{display:flex;gap:6px;margin-top:6px}
+.quick-buttons{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:6px;
+  margin-top:6px;
+}
 .quick-buttons button{
   flex:1;padding:8px;border:none;border-radius:6px;
   background:#334155;color:white;cursor:pointer;
