@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculadora de Autonomía</title>
+
+<style>
+body{
+  font-family:system-ui,sans-serif;
+  background:#0f172a;
+  color:white;
+  margin:0;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  min-height:100vh;
+}
+
+.card{
+  background:#1e293b;
+  padding:22px;
+  border-radius:16px;
+  width:100%;
+  max-width:480px;
+}
+
+h1{
+  text-align:center;
+  margin-bottom:15px;
+}
+
+label{
+  display:block;
+  margin-top:12px;
+  font-size:14px;
+}
+
+input{
+  width:100%;
+  padding:10px;
+  margin-top:6px;
+  border:none;
+  border-radius:8px;
+  font-size:16px;
+  box-sizing:border-box;
+}
+
+.tabs{
+  display:flex;
+  gap:6px;
+  margin-top:8px;
+}
+
+.tab{
+  flex:1;
+  padding:8px;
+  background:#0f172a;
+  border-radius:6px;
+  text-align:center;
+  cursor:pointer;
+  opacity:.6;
+  font-size:13px;
+}
+
+.tab.active{
+  background:#22c55e;
+  color:#0f172a;
+  opacity:1;
+  font-weight:bold;
+}
+
+.tab-content{
+  display:none;
+  margin-top:8px;
+}
+
+.tab-content.active{
+  display:block;
+}
+
+.frac{
+  display:flex;
+  gap:6px;
+}
+
+.quick-buttons{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:6px;
+  margin-top:6px;
+}
+
+.quick-buttons button{
+  padding:8px;
+  border:none;
+  border-radius:6px;
+  background:#334155;
+  color:white;
+  cursor:pointer;
+}
+
+.quick-buttons button.selected{
+  background:#22c55e;
+  color:#0f172a;
+  font-weight:bold;
+}
+
+.calc{
+  width:100%;
+  margin-top:18px;
+  padding:12px;
+  border:none;
+  border-radius:10px;
+  font-weight:bold;
+  background:#22c55e;
+  color:#0f172a;
+  font-size:16px;
+  cursor:pointer;
+}
+
+.resultado{
+  margin-top:18px;
+  background:#0f172a;
+  padding:14px;
+  border-radius:10px;
+  text-align:center;
+  font-size:18px;
+}
+</style>
+</head>
+<body>
+
+<div class="card">
+
+<h1>🚗 Calculadora de Autonomía</h1>
+
+<label>Capacidad depósito (L)</label>
+<input id="capacidad" type="number" min="1" placeholder="Ej: 55">
+
+<label>Consumo medio (L/100 km)</label>
+<input id="consumo" type="number" min="0.1" step="0.1" placeholder="Ej: 6.5">
+
+<label>Nivel actual</label>
+
+<div class="tabs" id="tabsActual">
+  <div class="tab active" onclick="setTab(event,'pct')">%</div>
+  <div class="tab" onclick="setTab(event,'frac')">Fracción</div>
+  <div class="tab" onclick="setTab(event,'dec')">Decimal</div>
+  <div class="tab" onclick="setTab(event,'quick')">Rápido</div>
+</div>
+
+<div id="pct" class="tab-content active">
+  <input id="pct_val" type="number" min="0" max="100" placeholder="0 a 100">
+</div>
+
+<div id="frac" class="tab-content">
+  <div class="frac">
+    <input id="num" type="number" min="1" max="8" placeholder="Numerador">
+    <input id="den" type="number" placeholder="4 u 8">
+  </div>
+</div>
+
+<div id="dec" class="tab-content">
+  <input id="dec_val" type="number" min="0" max="1" step="0.01" placeholder="0.0 a 1.0">
+</div>
+
+<div id="quick" class="tab-content">
+  <div class="quick-buttons">
+    <button onclick="quick(event,0.25)">1/4</button>
+    <button onclick="quick(event,0.50)">2/4</button>
+    <button onclick="quick(event,0.75)">3/4</button>
+    <button onclick="quick(event,1)">4/4</button>
+  </div>
+</div>
+
+<button class="calc" onclick="calcular()">CALCULAR AUTONOMÍA</button>
+
+<div id="resultado" class="resultado"></div>
+
+</div>
+
+<script>
+
+let quickValue = null;
+
+function setTab(e,modo){
+
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.classList.remove('active');
+  });
+
+  e.target.classList.add('active');
+
+  document.querySelectorAll('.tab-content').forEach(c=>{
+    c.classList.remove('active');
+  });
+
+  document.getElementById(modo).classList.add('active');
+
+  quickValue = null;
+
+  document.querySelectorAll('.quick-buttons button').forEach(b=>{
+    b.classList.remove('selected');
+  });
+}
+
+function quick(e,val){
+
+  quickValue = val;
+
+  document.querySelectorAll('.quick-buttons button').forEach(b=>{
+    b.classList.remove('selected');
+  });
+
+  e.target.classList.add('selected');
+}
+
+function obtenerNivel(){
+
+  if(quickValue !== null) return quickValue;
+
+  if(document.getElementById('pct').classList.contains('active')){
+
+    let v = parseFloat(document.getElementById('pct_val').value);
+
+    if(isNaN(v) || v < 0 || v > 100)
+      throw "Introduce un porcentaje válido";
+
+    return v/100;
+  }
+
+  if(document.getElementById('frac').classList.contains('active')){
+
+    let n = parseFloat(document.getElementById('num').value);
+    let d = parseFloat(document.getElementById('den').value);
+
+    if(!(d===4 || d===8))
+      throw "El denominador debe ser 4 u 8";
+
+    if(n < 1 || n > d)
+      throw "Fracción inválida";
+
+    return n/d;
+  }
+
+  if(document.getElementById('dec').classList.contains('active')){
+
+    let v = parseFloat(document.getElementById('dec_val').value);
+
+    if(isNaN(v) || v < 0 || v > 1)
+      throw "Decimal inválido";
+
+    return v;
+  }
+
+  throw "Indica el nivel del depósito";
+}
+
+function calcular(){
+
+  try{
+
+    const capacidad =
+      parseFloat(document.getElementById('capacidad').value);
+
+    const consumo =
+      parseFloat(document.getElementById('consumo').value);
+
+    const nivel = obtenerNivel();
+
+    if(isNaN(capacidad) || capacidad < 1)
+      throw "La capacidad mínima es 1 litro";
+
+    if(isNaN(consumo) || consumo <= 0)
+      throw "Introduce un consumo válido";
+
+    const litrosDisponibles =
+      capacidad * nivel;
+
+    const autonomia =
+      (litrosDisponibles / consumo) * 100;
+
+    resultado.innerHTML = `
+      ⛽ Litros disponibles<br>
+      <b>${litrosDisponibles.toFixed(2)} L</b>
+
+      <br><br>
+
+      🚗 Consumo medio<br>
+      <b>${consumo.toFixed(1)} L/100 km</b>
+
+      <br><br>
+
+      📍 Autonomía estimada<br>
+      <b>${autonomia.toFixed(0)} km</b>
+    `;
+
+  }catch(err){
+    resultado.innerHTML = err;
+  }
+}
+
+</script>
+
+</body>
+</html>
