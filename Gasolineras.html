@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gasolineras Cercanas</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+
+<style>
+body{
+  margin:0;
+  font-family:system-ui,sans-serif;
+  background:#0f172a;
+  color:white;
+}
+
+header{
+  padding:16px;
+  text-align:center;
+  font-weight:bold;
+  font-size:18px;
+  background:#1e293b;
+}
+
+#map{
+  height:55vh;
+}
+
+.panel{
+  padding:12px;
+}
+
+.card{
+  background:#1e293b;
+  padding:10px;
+  margin-bottom:10px;
+  border-radius:10px;
+}
+
+.name{
+  font-weight:bold;
+}
+
+.small{
+  font-size:13px;
+  opacity:.8;
+}
+
+button{
+  margin-top:6px;
+  padding:8px;
+  width:100%;
+  border:none;
+  border-radius:8px;
+  background:#22c55e;
+  font-weight:bold;
+  cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<header>⛽ Gasolineras Cercanas</header>
+
+<div id="map"></div>
+
+<div class="panel" id="lista">
+Cargando gasolineras...
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script>
+
+let map;
+let userLat, userLon;
+let stations = [];
+
+// 📍 Distancia (Haversine)
+function distance(lat1, lon1, lat2, lon2){
+  const R = 6371;
+  const dLat = (lat2-lat1)*Math.PI/180;
+  const dLon = (lon2-lon1)*Math.PI/180;
+
+  const a =
+    Math.sin(dLat/2)*Math.sin(dLat/2) +
+    Math.cos(lat1*Math.PI/180) *
+    Math.cos(lat2*Math.PI/180) *
+    Math.sin(dLon/2)*Math.sin(dLon/2);
+
+  return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+}
+
+// 🗺️ Init mapa
+function initMap(lat, lon){
+
+  map = L.map('map').setView([lat, lon], 14);
+
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    maxZoom:19
+  }).addTo(map);
+
+  L.marker([lat, lon])
+    .addTo(map)
+    .bindPopup("📍 Estás aquí")
+    .openPopup();
+}
+
+// ⛽ Buscar gasolineras
+async function loadStations(lat, lon){
+
+  const query = `
+  [out:json];
+  (
+    node["amenity"="fuel"](around:5000,${lat},${lon});
+    way["amenity"="fuel"](around:5000,${lat},${lon});
+  );
+  out center;
+  `;
+
+  const url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(query);
+
+  const res = await fetch(url);
+  const data = await res.json();
+
+  stations = data.elements.map(el => {
+
+    const sLat = el.lat || el.center?.lat;
+    const sLon = el.lon || el.center?.lon;
+
+    const name = el.tags?.name || "Gasolinera";
+
+    const dist = distance(lat, lon, sLat, sLon);
+
+    return {
+      name,
+      lat: sLat,
+      lon: sLon,
+      dist
+    };
+  });
+
+  stations.sort((a,b)=>a.dist - b.dist);
+
+  renderStations();
+  renderMarkers();
+}
+
+// 📍 Marcadores
+function renderMarkers(){
+
+  stations.forEach(s=>{
+    L.marker([s.lat, s.lon])
+      .addTo(map)
+      .bindPopup(`
+        ⛽ ${s.name}<br>
+        📍 ${s.dist.toFixed(2)} km<br>
+        <a target="_blank"
+           href="https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lon}">
+           Cómo llegar
+        </a>
+      `);
+  });
+}
+
+// 📋 Lista ordenada
+function renderStations(){
+
+  const div = document.getElementById("lista");
+
+  if(stations.length === 0){
+    div.innerHTML = "No se han encontrado gasolineras cercanas.";
+    return;
+  }
+
+  div.innerHTML = stations.map(s=>`
+    <div class="card">
+      <div class="name">⛽ ${s.name}</div>
+      <div class="small">📍 ${s.dist.toFixed(2)} km</div>
+      <button onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lon}')">
+        Ir
+      </button>
+    </div>
+  `).join('');
+}
+
+// 🚀 Inicio
+navigator.geolocation.getCurrentPosition(pos => {
+
+  userLat = pos.coords.latitude;
+  userLon = pos.coords.longitude;
+
+  initMap(userLat, userLon);
+  loadStations(userLat, userLon);
+
+}, err => {
+
+  document.getElementById("lista").innerHTML =
+    "⚠️ Activa la ubicación para ver gasolineras.";
+});
+
+</script>
+
+</body>
+</html>
